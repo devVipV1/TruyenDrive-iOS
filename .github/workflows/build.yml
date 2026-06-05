@@ -1,8 +1,11 @@
-name: Build IPA
+name: Build Unsigned IPA
 
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
+      - master
 
 jobs:
   build:
@@ -12,26 +15,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Show Schemes
+      - name: Show Project Info
         run: |
           xcodebuild -list -project truyendrive.xcodeproj
 
-      - name: Build
+      - name: Build Unsigned App
         run: |
           xcodebuild \
-          -project truyendrive.xcodeproj \
-          -scheme truyendrive \
-          -configuration Release \
-          -sdk iphoneos \
-          build
+            -project truyendrive.xcodeproj \
+            -scheme truyendrive \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
 
-      - name: Archive Build Output
+      - name: Find App
         run: |
-          mkdir output
-          find ~/Library/Developer/Xcode/DerivedData -name "*.app" -exec cp -R {} output/ \; || true
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" | head -n 1)
+          echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
+          echo "Found app: $APP_PATH"
 
-      - name: Upload
+      - name: Create IPA
+        run: |
+          mkdir Payload
+          cp -R "$APP_PATH" Payload/
+          zip -r TruyenDrive-unsigned.ipa Payload
+
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: TruyenDrive-Build
-          path: output
+          name: TruyenDrive-Unsigned-IPA
+          path: TruyenDrive-unsigned.ipa
